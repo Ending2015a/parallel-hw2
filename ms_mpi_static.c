@@ -118,11 +118,10 @@ int main(int argc, char **argv){
 #endif
 
     // create image
-    int *image = (int*)malloc(total_pixel * sizeof(int));
-    int *image_begin = image + start_pixel;
-    int *image_end = image_begin + pixel_range;
-    int *iter = image_begin;
-    assert(image);
+    int *array = (int*)malloc(pixel_range * sizeof(int));
+    int *array_end = array + pixel_range;
+    int *iter = array;
+    assert(array);
 
     // mandelbrot set
     int col = start_pixel / width;  
@@ -138,17 +137,29 @@ int main(int argc, char **argv){
     printf("Rank %d: col %d, row %d\n", world_rank, col, row);
 #endif
 
-    while(iter<image_end){
+    int repeat;
+    double x, y;
+    double x2, y2, xy;
+    double len;
+
+    while(iter<array_end){
         
-        int repeat=0;
-        double x = 0;
-        double y = 0;
-        double length_squared = 0;
-        while(repeat < 100000 && length_squared < 4){
-            double temp = x * x - y * y + cr;
-            y = 2 * x * y + ci;
-            x = temp;
-            length_squared = x * x + y * y;
+        repeat=1;
+        x = cr;
+        y = ci;
+        x2 = x*x;
+        y2 = y*y;
+        xy = x*y;
+        len = x2 + y2;
+
+        while(repeat < 100000 && len < 4){
+            x = x2 - y2 + cr;
+            y = xy + xy + ci;
+            x2 = x*x;
+            y2 = y*y;
+            xy = x*y;
+            len = x2+y2;
+            
             ++repeat;
         }
 
@@ -164,42 +175,10 @@ int main(int argc, char **argv){
 
     }
 
-/*
-    while(iter<image_end){
-        int repeat=1;   
-        
-        double zr = cr;  //real
-        double zi = ci;  //imag
-        double zr2 = zr * zr;
-        double zi2 = zi * zi;
-        double zrzi = zr * zi;
-        double len2 = zr2 + zi2;
-        //iterate mandelbrot set
-        while(repeat < 100000 && len2 < 4){
-            zi = zrzi + zrzi + ci;
-            zr = zr2 - zi2 + cr;
-            zr2 = zr * zr;
-            zi2 = zi * zi;
-            len2 = zr2 + zi2;
-            ++repeat;
-        }
-        *iter = repeat;
-
-
-        //iterate point
-        ++row, ++iter;
-        cr += x_step;
-        if( row>=width ){
-            ++col, row=0;
-            cr = left;
-            ci += y_step;
-        }
-    }
-*/
 
     int *recvcount = (int*)malloc(world_size * sizeof(int));
     int *displs = (int*)malloc(world_size * sizeof(int));
-    int *mg_image = (int*)malloc(total_pixel * sizeof(int));
+    int *image = (int*)malloc(total_pixel * sizeof(int));
 
 
     for(int i=0;i<world_size;++i){
@@ -217,20 +196,20 @@ int main(int argc, char **argv){
 
     }
 
-    MPI_Gatherv(image_begin, pixel_range, MPI_INT, mg_image, recvcount, displs, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Gatherv(array, pixel_range, MPI_INT, image, recvcount, displs, MPI_INT, 0, MPI_COMM_WORLD);
 
 
     if(world_rank == 0){
 #ifdef __DEBUG__
         printf("Rank %d: write to image %s\n", world_rank, filename);
 #endif
-        write_png(filename, width, height, mg_image);
+        write_png(filename, width, height, image);
     }
 
     free(image);
     free(recvcount);
     free(displs);
-    free(mg_image);
+    free(array);
 
     //Final
     MPI_Finalize();

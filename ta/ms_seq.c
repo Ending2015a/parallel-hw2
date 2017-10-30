@@ -23,7 +23,7 @@ void write_png(const char* filename, const int width, const int height, const in
         memset(row, 0, row_size);
         for (int x = 0; x < width; ++x) {
             int p = buffer[(height - 1 - y) * width + x];
-            row[x * 3+2] = ((p & 0xf) << 4);
+            row[x * 3] = ((p & 0xf) << 4);
         }
         png_write_row(png_ptr, row);
     }

@@ -199,7 +199,7 @@ int main(int argc, char **argv){
 
     int *recvcount = (int*)malloc(world_size * sizeof(int));
     int *displs = (int*)malloc(world_size * sizeof(int));
-
+    int *mg_image = (int*)malloc(total_pixel * sizeof(int));
 
 
     for(int i=0;i<world_size;++i){
@@ -217,20 +217,20 @@ int main(int argc, char **argv){
 
     }
 
-    MPI_Gatherv(image_begin, pixel_range, MPI_INT, image, recvcount, displs, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Gatherv(image_begin, pixel_range, MPI_INT, mg_image, recvcount, displs, MPI_INT, 0, MPI_COMM_WORLD);
 
 
     if(world_rank == 0){
 #ifdef __DEBUG__
         printf("Rank %d: write to image %s\n", world_rank, filename);
 #endif
-        write_png(filename, width, height, image);
+        write_png(filename, width, height, mg_image);
     }
 
     free(image);
     free(recvcount);
     free(displs);
-
+    free(mg_image);
 
     //Final
     MPI_Finalize();

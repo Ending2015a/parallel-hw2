@@ -2,8 +2,8 @@
 
 low="-1.125"
 up="1.125"
-left="-3.25"
-right="0.75"
+left="-2.6"
+right="1.4"
 width="1280"
 height="720"
 

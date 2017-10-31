@@ -1,9 +1,9 @@
 #!/bin/bash
 
-low="-2"
-up="2"
-left="-2.25"
-right="1.75"
+low="-1.125"
+up="1.125"
+left="-3.25"
+right="0.75"
 width="1280"
 height="720"
 

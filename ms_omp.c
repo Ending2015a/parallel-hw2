@@ -86,12 +86,12 @@ int main(int argc, char** argv) {
     double y0, x0;
     int repeats;
     double x, y, x2, y2, xy, len;
-
+    int i, j;
     /* mandelbrot set */
-#pragma omp parallel num_threads(num_threads) private(x0, y0, repeats, x, y, x2, y2, xy, len) shared(image)
+#pragma omp parallel num_threads(num_threads) private(x0, y0, repeats, x, y, x2, y2, xy, len, i, j) shared(image)
 #pragma omp for schedule(dynamic) collapse(2)
-    for (int j = 0; j < height; ++j) {
-        for (int i = 0; i < width; ++i) {
+    for (j = 0; j < height; ++j) {
+        for (i = 0; i < width; ++i) {
             y0 = j * ((upper - lower) / height) + lower;
             x0 = i * ((right - left) / width) + left;
 
@@ -101,7 +101,7 @@ int main(int argc, char** argv) {
             x2 = x*x;
             y2 = y*y;
             xy = x*y;
-            len = 0;
+            len = x2 + y2;
 
             if(test(x, y, y2)){
                 repeats = 100000;
@@ -123,6 +123,7 @@ int main(int argc, char** argv) {
 
     for (int y = 0; y < height; ++y) {
         memset(png_row, 0, row_size);
+
 #pragma omp parallel for num_threads(num_threads) schedule(dynamic)
         for (int x = 0; x < width; ++x) {
             int p = image[(height - 1 - y) * width + x];
@@ -139,4 +140,5 @@ int main(int argc, char** argv) {
     /* draw and cleanup */
     //write_png(filename, width, height, image);
     free(image);
+    return 0;
 }

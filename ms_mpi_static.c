@@ -69,6 +69,18 @@ void write_png(const char* filename, const int width, const int height, const in
 }
 
 
+int test(double *x, double *y, double *y2){
+    double xp = *x-0.25;
+    double cp = *x+1;
+    double theta = atan2(*y, xp);
+    double r = 0.5*(1-cos(theta));
+    if(r*r >= xp*xp + *y2 || 0.0625 >= cp*cp + *y2)
+        return 1;
+    else
+        return 0;    
+}
+
+
 int main(int argc, char **argv){
 
     // check argument count
@@ -152,15 +164,20 @@ int main(int argc, char **argv){
         xy = x*y;
         len = x2 + y2;
 
-        while(repeat < 100000 && len < 4){
-            x = x2 - y2 + cr;
-            y = xy + xy + ci;
-            x2 = x*x;
-            y2 = y*y;
-            xy = x*y;
-            len = x2+y2;
+        if(test(&x, &y, &y2)){
+            repeat = 100000;
+        }else{
+
+            while(repeat < 100000 && len < 4){
+                x = x2 - y2 + cr;
+                y = xy + xy + ci;
+                x2 = x*x;
+                y2 = y*y;
+                xy = x*y;
+                len = x2+y2;
             
-            ++repeat;
+                ++repeat;
+            }
         }
 
         *iter = repeat;

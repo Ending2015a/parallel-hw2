@@ -1,6 +1,6 @@
 CC = mpicc
 CXX = mpicxx
-LDFLAGS = -lpng
+LDFLAGS = -lpng -lm
 CFLAGS = -O3 -std=gnu99
 CXXFLAGS = -O3 -std=gnu++11
 TARGETS = ms_seq ms_mpi_static ms_mpi_dynamic ms_omp ms_hybrid

@@ -142,8 +142,8 @@ int main(int argc, char **argv){
 
     double x_step = ((right - left) / width);
     double y_step = ((upper - lower) / height);
-    double cr = row * x_step + left;  //real part
-    double ci = col * y_step + lower;  //imag part
+    double cr;  //real part
+    double ci;  //imag part
 
 #ifdef __DEBUG__
     printf("Rank %d: col %d, row %d\n", world_rank, col, row);
@@ -157,6 +157,8 @@ int main(int argc, char **argv){
     while(iter<array_end){
         
         repeat=1;
+        cr = row * x_step + left;
+        ci = col * y_step + lower;
         x = cr;
         y = ci;
         x2 = x*x;
@@ -182,12 +184,10 @@ int main(int argc, char **argv){
 
         *iter = repeat;
         ++iter;
-        cr += x_step;
         ++row;
         if(row >= width){
             row = 0;
-            cr = left;
-            ci += y_step;
+            ++col;
         }
 
     }

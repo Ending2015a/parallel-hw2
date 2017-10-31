@@ -11,7 +11,7 @@
 
 //#define __MEASURE_TIME__
 
-#define __DEBUG__
+//#define __DEBUG__
 
 
 #define MINIMUM_NUMBER 1024
@@ -137,13 +137,9 @@ inline void worker(){
 
         while(iter<array_end){
 
-#ifdef __DEBUG__
-            if(iter >= array+size){
-                printf("Rank %d: Out of range\n", world_rank);
-            }
-#endif
-
             repeat=1;
+            cr = row * x_step + left;
+            ci = col * y_step + lower;
             x = cr;
             y = ci;
             x2 = x*x;
@@ -169,12 +165,10 @@ inline void worker(){
 
             *iter = repeat;
             ++iter;
-            cr += x_step;
             ++row;
             if(row >= width){
                 row = 0;
-                cr = left;
-                ci += y_step;
+                ++col;
             }
 
         }

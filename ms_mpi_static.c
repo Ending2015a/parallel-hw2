@@ -11,7 +11,7 @@
 
 //#define __MEASURE_TIME__
 
-#define __DEBUG__
+//#define __DEBUG__
 
 #define MINIMUM_NUMBER 4
 #define MAX(x, y) ((x)>(y)?(x):(y))

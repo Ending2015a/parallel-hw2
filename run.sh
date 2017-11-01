@@ -1,28 +1,21 @@
 #!/bin/bash
 
 
-orig='./ms_seq'
-prog='./HW1_103062372_advanced'
+program=('ms_seq' 'ms_mpi_static' 'ms_mpi_dynamic' 'ms_omp' 'ms_hybrid')
+total_case_gen=10
 p='-p batch'
-declare -a Narr=('1'  '4'  '4'  '4')
-declare -a narr=('1' '4' '16' '48')
-number=1
-pf='1'
-cs="testcase/case${pf}"
-ans="testcase/case${pf}.ans"
-out="out${pf}"
-log="advanced_log${pf}_1.txt"
-
-total=${#Narr[@]}
+N=('1' '4' '4' '1' '4')
+n=('1' '8' '8' '1' '8')
+c=('1' '1' '1' '8' '8')
+program_num=${#program[@]}
 pass=0
 all_pass=1
 
-rm $log
-rm $out
 
-for ((i=0;i<$total;++i)); do
-    N=${Narr[i]}
-    n=${narr[i]}
+
+
+for ((i=0;i<$total_case_gen;++i)); do
+    
     echo "for case$i: -N=$N -n=$n"
 
     echo "N $N, n $n" >> $log

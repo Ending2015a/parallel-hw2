@@ -194,13 +194,17 @@ int main(int argc, char **argv){
 
 
     int *recvcount = (int*)malloc(world_size * sizeof(int));
-    int *displs = (int*)malloc(world_size * sizeof(int));
-    int *image = (int*)malloc(total_pixel * sizeof(int));
+    assert(recvcount);
 
+    int *displs = (int*)malloc(world_size * sizeof(int));
+    assert(displs);
+
+    int *image = (int*)malloc(total_pixel * sizeof(int));
+    assert(image);
 
     for(int i=0;i<world_size;++i){
         if (i < valid_size){
-            displs[i] = divide * i + (bonus?i:remain);
+            displs[i] = divide * i + ((i<remain)?i:remain);
             recvcount[i] = ((i < remain) ? 1:0) + divide;
         }else{
             displs[i] = 0;

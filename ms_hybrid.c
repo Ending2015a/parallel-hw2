@@ -46,7 +46,7 @@ double left, right;
 double lower, upper;
 int width, height;
 char* filename;
-unsigned char* line_png;
+png_bytep line_png;
 
 void write_png(const char* filename, const int width, const int height, const int* buffer) {
     FILE* fp = fopen(filename, "wb");
@@ -181,8 +181,8 @@ inline void worker(){
 
 // tag = 1: task signal
 // tag = -1: end signal
-inline void manager(){
-    int *image = (int*)malloc(width * height * sizeof(int));
+inline void manager(int *image){
+    //int *image = (int*)malloc(width * height * sizeof(int));
     int *worker_list = (int*)malloc(world_size*2 * sizeof(int));
 
     assert(image);
@@ -261,9 +261,9 @@ inline void manager(){
                 printf("Rank %d-%d: receive rank %d task(%d +%d)\n", world_rank, omp_get_thread_num(), wrank, off, size);
 #endif
 
-                #pragma omp parallel sections num_threads(2) shared(remain_pixel, done_pixel, current_pixel, worker_list, total_pixel, line_png, image)
+                //#pragma omp parallel sections num_threads(2) shared(remain_pixel, done_pixel, current_pixel, worker_list, total_pixel, line_png, image)
                 {
-                    #pragma omp section
+                    //#pragma omp section
                     {
                         if (remain_pixel > 0){
                             #pragma omp critical
@@ -289,15 +289,15 @@ inline void manager(){
 #endif
                         }
                     }
-                    #pragma omp section
-                    {
+                    //#pragma omp section
+                    //{
 #ifdef __DEBUG__
-                        printf("Rank %d-%d: transfer to image(%d +%d)\n", world_rank, omp_get_thread_num(), off, size);
+                      //  printf("Rank %d-%d: transfer to image(%d +%d)\n", world_rank, omp_get_thread_num(), off, size);
 #endif
-                        for(int n=off;n<off+size;++n){
-                            line_png[n*3] = ((image[n] & 0xf) << 4); 
-                        }
-                    }
+                      //  for(int n=off;n<off+size;++n){
+                       //     line_png[n*3] = ((image[n] & 0xf) << 4); 
+                        //}
+                    //}
                 }
             }//if tag
         }while(done_pixel < total_pixel);
@@ -305,7 +305,7 @@ inline void manager(){
     }
 
     free(worker_list);
-    free(image);
+    //free(image);
 #ifdef __DEBUG__
     printf("Rank %d: all tasks done\n", world_rank);
 #endif
@@ -360,20 +360,23 @@ int main(int argc, char **argv){
     if(world_rank != 0){
         worker();
     }else{
+        omp_set_nested(1);
         // create image
-        line_png = (unsigned char*)malloc(total_pixel * 3);
+        line_png = (png_bytep)malloc(total_pixel * 3 * sizeof(png_byte));
+        int *image = (int*)malloc(total_pixel*sizeof(int));
 #ifdef __DEBUG__
         printf("Rank %d: line png size %d\n", world_rank, total_pixel * 3);
 #endif
         assert(line_png);
-        manager();
+        manager(image);
 
 #ifdef __DEBUG__
         printf("Rank %d: write to image %s\n", world_rank, filename);
 #endif
 
-        //write_png(filename, width, height, image);
-
+        write_png(filename, width, height, image);
+        free(image);
+        /*
         FILE* fp = fopen(filename, "wb");
         assert(fp);
         png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
@@ -394,9 +397,9 @@ int main(int argc, char **argv){
         png_write_image(png_ptr, rf);
         png_write_end(png_ptr, NULL);
         png_destroy_write_struct(&png_ptr, &info_ptr);
-        fclose(fp);
+        fclose(fp);*/
         free(line_png);
-        free(rf);
+        //free(rf);
 
     }
 

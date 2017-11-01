@@ -3,7 +3,7 @@ CXX = mpicxx
 LDFLAGS = -lpng -lm -fopenmp
 CFLAGS = -O3 -std=gnu99
 CXXFLAGS = -O3 -std=gnu++11
-TARGETS = ms_seq ms_mpi_static ms_mpi_dynamic ms_omp ms_hybrid
+TARGETS = ms_seq ms_mpi_static ms_mpi_dynamic ms_omp ms_omp_static ms_hybrid
 
 .PHONY: all
 all: $(TARGETS)

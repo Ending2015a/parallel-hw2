@@ -257,32 +257,21 @@ inline void manager(){
                 #pragma omp atomic
                 done_pixel += size;
 
-                #pragma omp parallel sections num_threads(2) private(off_c, size_c, off, size) shared(remain_pixel, done_pixel, current_pixel, worker_list, total_pixel)
+#ifdef __DEBUG__
+                printf("Rank %d-%d: receive rank %d task(%d +%d)\n", world_rank, omp_get_thread_num(), wrank, off, size);
+#endif
+
+                #pragma omp parallel sections num_threads(2) shared(remain_pixel, done_pixel, current_pixel, worker_list, total_pixel)
                 {
                     #pragma omp section
                     {
-#ifdef __DEBUG__
-                        printf("Rank %d-%d: section one, remain pixel %d\n", world_rank, omp_get_thread_num(), remain_pixel);
-#endif
                         if (remain_pixel > 0){
-
                             #pragma omp critical
                             {
-    
-#ifdef __DEBUG__
-                                printf("Rank %d-%d: enter critical, off_c %d, size_c %d\n", world_rank, omp_get_thread_num(), off_c, size_c);
-#endif
-
                                 worker_list[off_c] = current_pixel;
                                 worker_list[size_c] = MIN(remain_pixel, task_size);
                                 current_pixel += worker_list[size_c];
                                 remain_pixel -= worker_list[size_c];
-
-#ifdef __DEBUG__
-                                printf("Rank %d-%d: exit critical\n", world_rank, omp_get_thread_num());
-#endif
-
-
                             }
 
 #ifdef __DEBUG__

@@ -163,7 +163,7 @@ inline void worker(){
         }
 
 
-        MPI_Send(array, size, MPI_INT, 0, 1, MPI_COMM_WORLD);
+        MPI_Send(array, size, MPI_INT, 0, world_rank, MPI_COMM_WORLD);
 
 #ifdef __DEBUG__
         printf("Rank %d: task(%d +%d) done, send back to root\n", world_rank, off, size);
@@ -225,7 +225,7 @@ inline void manager(int *image){
         }
     }
 
-    int tag;
+    int flag;
     MPI_Status status;
     int wrank;
     //int parallel_threads = MIN(num_threads, (world_size-1) >> 1);
@@ -241,18 +241,18 @@ inline void manager(int *image){
     int size;
 
     //divide remain task
-    #pragma omp parallel num_threads(parallel_threads) private(tag, status, wrank, off_c, size_c, off, size) shared(remain_pixel, done_pixel, current_pixel, worker_list, total_pixel, image)
+    #pragma omp parallel num_threads(parallel_threads) private(flag, status, wrank, off_c, size_c, off, size) shared(remain_pixel, done_pixel, current_pixel, worker_list, total_pixel, image)
     {
         do{
-            MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &tag, &status);
-            if (tag){
+            MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &status);
+            if (flag){
                 wrank = status.MPI_SOURCE;
                 off_c = wrank*2;
                 size_c = wrank*2+1;
                 off = worker_list[off_c];
                 size = worker_list[size_c];
 
-                MPI_Recv(image+off, size, MPI_INT, wrank, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+                MPI_Recv(image+off, size, MPI_INT, wrank, wrank, MPI_COMM_WORLD, &status);
 
                 #pragma omp atomic
                 done_pixel += size;

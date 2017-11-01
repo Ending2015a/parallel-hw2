@@ -257,7 +257,7 @@ inline void manager(){
                 #pragma omp atomic
                 done_pixel += size;
 
-                #pragma omp parallel sections num_threads(2)
+                #pragma omp parallel sections num_threads(2) private(off_c, size_c, off, size) shared(remain_pixel, done_pixel, current_pixel, worker_list, total_pixel)
                 {
                     #pragma omp section
                     {

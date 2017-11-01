@@ -11,7 +11,7 @@
 
 //#define __MEASURE_TIME__
 
-//#define __DEBUG__
+#define __DEBUG__
 
 
 #define MINIMUM_NUMBER 1024
@@ -241,7 +241,7 @@ inline void manager(){
     int size;
 
     //divide remain task
-    #pragma omp parallel num_threads(parallel_threads) private(tag, status, wrank, off_c, size_c, off, size) shared(remain_pixel, done_pixel, current_pixel, worker_list, total_pixel)
+    #pragma omp parallel num_threads(parallel_threads) private(tag, status, wrank, off_c, size_c, off, size) shared(remain_pixel, done_pixel, current_pixel, worker_list, total_pixel, image)
     {
         do{
             MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &tag, &status);
@@ -261,7 +261,7 @@ inline void manager(){
                 printf("Rank %d-%d: receive rank %d task(%d +%d)\n", world_rank, omp_get_thread_num(), wrank, off, size);
 #endif
 
-                #pragma omp parallel sections num_threads(2) shared(remain_pixel, done_pixel, current_pixel, worker_list, total_pixel)
+                #pragma omp parallel sections num_threads(2) shared(remain_pixel, done_pixel, current_pixel, worker_list, total_pixel, line_png, image)
                 {
                     #pragma omp section
                     {

@@ -303,7 +303,8 @@ inline void manager(){
                         printf("Rank %d-%d: transfer to image(%d +%d)\n", world_rank, omp_get_thread_num(), off, size);
 #endif
                         for(int n=off;n<off+size;++n){
-                            line_png[n*3] = ((buffer[n-off] & 0xf) << 4); 
+                            line_png[n*3] = ((buffer[n-off] & 0xf) << 4);
+                            
                         }
                     }
                 }
@@ -346,11 +347,12 @@ int main(int argc, char **argv){
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
+#ifdef __DEBUG__
     if (provided < MPI_THREAD_MULTIPLE){
         printf("ERROR: The MPI library does not have full thread support\n");
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
-
+#endif
 
     // Argument parsing
     set_param(argc, argv);
@@ -372,7 +374,7 @@ int main(int argc, char **argv){
         omp_set_nested(1);
         // create image
         line_png = (png_bytep)malloc(total_pixel * 3 * sizeof(png_byte));
-        //int *image = (int*)malloc(total_pixel*sizeof(int));
+        memset(line_png, 0, total_pixel * 3 * sizeof(png_byte));
 #ifdef __DEBUG__
         printf("Rank %d: line png size %d\n", world_rank, total_pixel * 3);
 #endif

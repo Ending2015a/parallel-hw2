@@ -7,11 +7,11 @@
 #include <assert.h>
 #include <png.h>
 #include <string.h>
-
+#include <omp.h>
 
 //#define __MEASURE_TIME__
 
-//#define __DEBUG__
+#define __DEBUG__
 
 
 #define MINIMUM_NUMBER 1024
@@ -92,7 +92,7 @@ int test(double *x, double *y, double *y2){
 
 
 inline void worker(){
-    int *array = (int*)malloc((task_size+10) * sizeof(int));
+    int *array = (int*)malloc((task_size) * sizeof(int));
 
 #ifdef __DEBUG__
     printf("Rank %d: array size %d\n", world_rank, task_size);
@@ -131,11 +131,11 @@ inline void worker(){
         double len;
 #pragma omp parallel num_threads(num_threads) private(idx, cr, ci, repeat, x, y, x2, y2, xy, len) shared(x_step, y_step)
 #pragma omp for schedule(dynamic)
-        for(idx=off ; idx<off+size ; ++idx){
+        for(idx=0 ; idx<size ; ++idx){
             
             repeat=1;
-            cr = (idx%width) * x_step + left;
-            ci = (idx/width) * y_step + lower;
+            cr = ((idx+off)%width) * x_step + left;
+            ci = ((idx+off)/width) * y_step + lower;
             x = cr;
             y = ci;
             x2 = x*x;
@@ -159,7 +159,7 @@ inline void worker(){
                 }
             }
 
-            array[idx-off] = repeat;
+            array[idx] = repeat;
         }
 
 
@@ -185,14 +185,18 @@ inline void manager(){
     int *image = (int*)malloc(width * height * sizeof(int));
     int *worker_list = (int*)malloc(world_size*2 * sizeof(int));
 
+    assert(image);
+    assert(worker_list);
+
     int current_pixel=0;
     int remain_pixel = total_pixel;
     int done_pixel = 0;
 
+    int i;
     //First Task
-#pragma omp parallel num_threads(num_threads) shared(world_size, current_pixel, remain_pixel, done_pixel, worker_list)
-#pragma omp for
-    for(int i=1;i<world_size;++i){
+#pragma omp parallel num_threads(num_threads) shared(world_size, current_pixel, remain_pixel, done_pixel, worker_list) private(i)
+#pragma omp for schedule(dynamic)
+    for(i=1;i<world_size;++i){
         int off=i*2;
         int size=i*2+1;
 
@@ -205,7 +209,7 @@ inline void manager(){
                 remain_pixel -= worker_list[size];
             }
 #ifdef __DEBUG__
-            printf("Rank %d: send task(%d +%d) to rank %d\n", world_rank, worker_list[off], worker_list[size], i);
+            printf("Rank %d-%d: send task(%d +%d) to rank %d\n", world_rank, omp_get_thread_num(), worker_list[off], worker_list[size], i);
 #endif
             MPI_Send(&worker_list[off], 2, MPI_INT, i, 1, MPI_COMM_WORLD);
 
@@ -213,7 +217,7 @@ inline void manager(){
             worker_list[off] = 0;
             worker_list[size] = 0;
 #ifdef __DEBUG__
-            printf("Rank %d: send end signal to rank %d\n", world_rank, i);
+            printf("Rank %d-%d: send end signal to rank %d\n", world_rank, omp_get_thread_num(), i);
 #endif
 
             MPI_Send(&worker_list[off], 2, MPI_INT, i, 0, MPI_COMM_WORLD);
@@ -224,63 +228,95 @@ inline void manager(){
     int tag;
     MPI_Status status;
     int wrank;
-    int parallel_threads = MIN(num_threads, (world_size-1) >> 1);
+    //int parallel_threads = MIN(num_threads, (world_size-1) >> 1);
+    int parallel_threads = MAX(1, num_threads/2);
+
+#ifdef __DEBUG__
+    printf("Rank %d: parallel threads %d\n", world_rank, parallel_threads);
+#endif
+
+    int off_c;
+    int size_c;
+    int off;
+    int size;
 
     //divide remain task
-    do{
-        #pragma omp parallel num_threads( parallel_threads ) private(tag, status, wrank) shared(remain_pixel, done_pixel, current_pixel, worker_list)
-        {
+    #pragma omp parallel num_threads(parallel_threads) private(tag, status, wrank, off_c, size_c, off, size) shared(remain_pixel, done_pixel, current_pixel, worker_list, total_pixel)
+    {
+        do{
             MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &tag, &status);
             if (tag){
                 wrank = status.MPI_SOURCE;
-                int off_c = wrank*2;
-                int size_c = wrank*2+1;
-                int off = worker_list[off_c];
-                int size = worker_list[size_c];
+                off_c = wrank*2;
+                size_c = wrank*2+1;
+                off = worker_list[off_c];
+                size = worker_list[size_c];
 
                 MPI_Recv(image+off, size, MPI_INT, wrank, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+
                 #pragma omp atomic
                 done_pixel += size;
+
                 #pragma omp parallel sections num_threads(2)
                 {
                     #pragma omp section
                     {
+#ifdef __DEBUG__
+                        printf("Rank %d-%d: section one, remain pixel %d\n", world_rank, omp_get_thread_num(), remain_pixel);
+#endif
                         if (remain_pixel > 0){
+
                             #pragma omp critical
                             {
+    
+#ifdef __DEBUG__
+                                printf("Rank %d-%d: enter critical, off_c %d, size_c %d\n", world_rank, omp_get_thread_num(), off_c, size_c);
+#endif
+
                                 worker_list[off_c] = current_pixel;
                                 worker_list[size_c] = MIN(remain_pixel, task_size);
                                 current_pixel += worker_list[size_c];
                                 remain_pixel -= worker_list[size_c];
+
+#ifdef __DEBUG__
+                                printf("Rank %d-%d: exit critical\n", world_rank, omp_get_thread_num());
+#endif
+
+
                             }
 
-                            MPI_Send(&worker_list[off_c], 2, MPI_INT, wrank, 1, MPI_COMM_WORLD);
 #ifdef __DEBUG__
-                            printf("Rank %d: send task(%d +%d) to rank %d\n", world_rank, worker_list[off], worker_list[size], wrank);
+                            printf("Rank %d-%d: send task(%d +%d) to rank %d\n", world_rank, omp_get_thread_num(), worker_list[off_c], worker_list[size_c], wrank);
 #endif
+
+                            MPI_Send(&worker_list[off_c], 2, MPI_INT, wrank, 1, MPI_COMM_WORLD);
             
                         }else{
                             worker_list[off_c] = 0;
                             worker_list[size_c] = 0;
                             MPI_Send(&worker_list[off_c], 2, MPI_INT, wrank, 0, MPI_COMM_WORLD);
 #ifdef __DEBUG__
-                            printf("Rank %d: send end signal to rank %d\n", world_rank, wrank);
+                            printf("Rank %d-%d: send end signal to rank %d\n", world_rank, omp_get_thread_num(), wrank);
 #endif
                         }
                     }
                     #pragma omp section
                     {
-                        for(int i=off;i<off+size;++i){
-                            line_png[i*3] = ((image[i] & 0xf) << 4); 
+#ifdef __DEBUG__
+                        printf("Rank %d-%d: transfer to image(%d +%d)\n", world_rank, omp_get_thread_num(), off, size);
+#endif
+                        for(int n=off;n<off+size;++n){
+                            line_png[n*3] = ((image[n] & 0xf) << 4); 
                         }
                     }
                 }
-            }
-        }
+            }//if tag
+        }while(done_pixel < total_pixel);
         
-    }while(done_pixel < total_pixel);
+    }
 
     free(worker_list);
+    free(image);
 #ifdef __DEBUG__
     printf("Rank %d: all tasks done\n", world_rank);
 #endif
@@ -337,6 +373,10 @@ int main(int argc, char **argv){
     }else{
         // create image
         line_png = (unsigned char*)malloc(total_pixel * 3);
+#ifdef __DEBUG__
+        printf("Rank %d: line png size %d\n", world_rank, total_pixel * 3);
+#endif
+        assert(line_png);
         manager();
 
 #ifdef __DEBUG__

@@ -129,7 +129,7 @@ inline void worker(){
         double x, y;
         double x2, y2, xy;
         double len;
-#pragma omp parallel num_threads(num_threads) private(idx, cr, ci, repeat, x, y, x2, y2, xy, len) shared(x_step, y_step)
+#pragma omp parallel num_threads(num_threads) private(idx, cr, ci, repeat, x, y, x2, y2, xy, len) shared(x_step, y_step, size, off, array)
 #pragma omp for schedule(dynamic)
         for(idx=0 ; idx<size ; ++idx){
             
@@ -387,8 +387,8 @@ int main(int argc, char **argv){
 
         png_bytepp rf = (png_bytepp)malloc(height * sizeof(png_bytep));
 
-        for(int i=height-1;i>=0;--i){
-            rf[i] = (png_bytep)(line_png + i * width * 3);
+        for(int y=0;y<height;++y){
+            rf[y] = (png_bytep)(line_png + (height - 1 - y) * width*3);
         }
         
         png_write_image(png_ptr, rf);

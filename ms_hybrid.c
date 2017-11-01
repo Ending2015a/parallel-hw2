@@ -48,6 +48,7 @@ int width, height;
 char* filename;
 png_bytep line_png;
 
+/*
 void write_png(const char* filename, const int width, const int height, const int* buffer) {
     FILE* fp = fopen(filename, "wb");
     assert(fp);
@@ -75,7 +76,7 @@ void write_png(const char* filename, const int width, const int height, const in
     fclose(fp);
 }
 
-
+*/
 
 
 int test(double *x, double *y, double *y2){
@@ -181,11 +182,9 @@ inline void worker(){
 
 // tag = 1: task signal
 // tag = -1: end signal
-inline void manager(int *image){
-    //int *image = (int*)malloc(width * height * sizeof(int));
-    int *worker_list = (int*)malloc(world_size*2 * sizeof(int));
+inline void manager(){
 
-    assert(image);
+    int *worker_list = (int*)malloc(world_size*2 * sizeof(int));
     assert(worker_list);
 
     int current_pixel=0;
@@ -227,6 +226,7 @@ inline void manager(int *image){
 
     int flag;
     MPI_Status status;
+    MPI_Request request;
     int wrank;
     //int parallel_threads = MIN(num_threads, (world_size-1) >> 1);
     int parallel_threads = MAX(1, num_threads/2);
@@ -241,10 +241,17 @@ inline void manager(int *image){
     int size;
 
     //divide remain task
-    #pragma omp parallel num_threads(parallel_threads) private(flag, status, wrank, off_c, size_c, off, size) shared(remain_pixel, done_pixel, current_pixel, worker_list, total_pixel, image)
+    #pragma omp parallel num_threads(parallel_threads) private(flag, status, request, wrank, off_c, size_c, off, size) shared(remain_pixel, done_pixel, current_pixel, worker_list, total_pixel, line_png)
     {
+        int *buffer = (int*)malloc(task_size * sizeof(int));
+        flag = -1;
         do{
-            MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &status);
+            if(flag==-1){
+                MPI_Irecv(buffer, task_size, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &request);
+                flag=0;
+            }//MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &status);
+            
+            MPI_Test(&request, &flag, &status);
             if (flag){
                 wrank = status.MPI_SOURCE;
                 off_c = wrank*2;
@@ -252,7 +259,8 @@ inline void manager(int *image){
                 off = worker_list[off_c];
                 size = worker_list[size_c];
 
-                MPI_Recv(image+off, size, MPI_INT, wrank, wrank, MPI_COMM_WORLD, &status);
+                //memcpy(image+off, buffer, size*sizeof(int));
+               // MPI_Recv(image+off, size, MPI_INT, wrank, wrank, MPI_COMM_WORLD, &status);
 
                 #pragma omp atomic
                 done_pixel += size;
@@ -261,9 +269,9 @@ inline void manager(int *image){
                 printf("Rank %d-%d: receive rank %d task(%d +%d)\n", world_rank, omp_get_thread_num(), wrank, off, size);
 #endif
 
-                //#pragma omp parallel sections num_threads(2) shared(remain_pixel, done_pixel, current_pixel, worker_list, total_pixel, line_png, image)
+                #pragma omp parallel sections num_threads(2) shared(remain_pixel, done_pixel, current_pixel, worker_list, total_pixel, line_png)
                 {
-                    //#pragma omp section
+                    #pragma omp section
                     {
                         if (remain_pixel > 0){
                             #pragma omp critical
@@ -289,19 +297,20 @@ inline void manager(int *image){
 #endif
                         }
                     }
-                    //#pragma omp section
-                    //{
+                    #pragma omp section
+                    {
 #ifdef __DEBUG__
-                      //  printf("Rank %d-%d: transfer to image(%d +%d)\n", world_rank, omp_get_thread_num(), off, size);
+                        printf("Rank %d-%d: transfer to image(%d +%d)\n", world_rank, omp_get_thread_num(), off, size);
 #endif
-                      //  for(int n=off;n<off+size;++n){
-                       //     line_png[n*3] = ((image[n] & 0xf) << 4); 
-                        //}
-                    //}
+                        for(int n=off;n<off+size;++n){
+                            line_png[n*3] = ((buffer[n-off] & 0xf) << 4); 
+                        }
+                    }
                 }
+                flag=-1;
             }//if tag
         }while(done_pixel < total_pixel);
-        
+        free(buffer);
     }
 
     free(worker_list);
@@ -363,20 +372,20 @@ int main(int argc, char **argv){
         omp_set_nested(1);
         // create image
         line_png = (png_bytep)malloc(total_pixel * 3 * sizeof(png_byte));
-        int *image = (int*)malloc(total_pixel*sizeof(int));
+        //int *image = (int*)malloc(total_pixel*sizeof(int));
 #ifdef __DEBUG__
         printf("Rank %d: line png size %d\n", world_rank, total_pixel * 3);
 #endif
         assert(line_png);
-        manager(image);
+        manager();
 
 #ifdef __DEBUG__
         printf("Rank %d: write to image %s\n", world_rank, filename);
 #endif
 
-        write_png(filename, width, height, image);
-        free(image);
-        /*
+        //write_png(filename, width, height, image);
+        //free(image);
+        
         FILE* fp = fopen(filename, "wb");
         assert(fp);
         png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
@@ -388,18 +397,18 @@ int main(int argc, char **argv){
                  PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
         png_write_info(png_ptr, info_ptr);
 
-        png_bytepp rf = (png_bytepp)malloc(height * sizeof(png_bytep));
+        png_bytepp image = (png_bytepp)malloc(height * sizeof(png_bytep));
 
         for(int y=0;y<height;++y){
-            rf[y] = (png_bytep)(line_png + (height - 1 - y) * width*3);
+            image[y] = (png_bytep)(line_png + (height - 1 - y) * width*3);
         }
         
-        png_write_image(png_ptr, rf);
+        png_write_image(png_ptr, image);
         png_write_end(png_ptr, NULL);
         png_destroy_write_struct(&png_ptr, &info_ptr);
-        fclose(fp);*/
+        fclose(fp);
         free(line_png);
-        //free(rf);
+        free(image);
 
     }
 

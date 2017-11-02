@@ -78,7 +78,7 @@ void write_png(const char* filename, const int width, const int height, const in
     fclose(fp);
 }
 
-
+/*
 int test(double *x, double *y, double *y2){
     double xp = *x-0.25;
     double cp = *x+1;
@@ -88,7 +88,7 @@ int test(double *x, double *y, double *y2){
         return 1;
     else
         return 0;    
-}
+}*/
 
 
 int main(int argc, char **argv){
@@ -181,10 +181,10 @@ int main(int argc, char **argv){
     }
 
     TOC(total_runtime);
+    
+    int* image = (int*)malloc(total_pixel_byte);
 
     TIC;
-
-    int* image = (int*)malloc(total_pixel_byte);
 
     //MPI_Gatherv(array, pixel_range, MPI_INT, image, recvcount, displs, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Reduce(array, image, total_pixel, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -192,17 +192,16 @@ int main(int argc, char **argv){
 
     TOC(total_commtime);
 
-    TIC;
 
 
     if(world_rank == 0){
 #ifdef __DEBUG__
         printf("Rank %d: write to image %s\n", world_rank, filename);
 #endif
+        TIC;
         write_png(filename, width, height, image);
+        TOC(total_iotime);
     }
-
-    TOC(total_iotime);
 
     free(image);
     free(array);

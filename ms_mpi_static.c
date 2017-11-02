@@ -9,7 +9,7 @@
 #include <string.h>
 
 
-//#define __MEASURE_TIME__
+#define __MEASURE_TIME__
 
 //#define __DEBUG__
 
@@ -20,11 +20,13 @@
 #ifdef __MEASURE_TIME__
     double __temp_time=0;
     #define TIC     __temp_time = MPI_Wtime()
-    #define TOC(X)  X += (MPI_Wtime() - __temp_time)
+    #define TOC(X)  X = (MPI_Wtime() - __temp_time)
+    #define TOC_P(X) X += (MPI_Wtime() - __temp_time)
     #define TIME(X) X = MPI_Wtime()
 #else
     #define TIC
     #define TOC(X)
+    #define TOC_P(X)
     #define TIME(X)
 #endif
 

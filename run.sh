@@ -3,18 +3,18 @@
 
 program=('ms_seq' 'ms_mpi_static' 'ms_mpi_dynamic' 'ms_omp' 'ms_hybrid')
 pic_name=('seq.png' 'stc.png' 'dyn.png' 'omp.png' 'hyb.png')
-total_case_gen=10
+total_case_gen=100
 p='-p batch'
-N=('1' '4' '4' '1' '4')
-n=('1' '8' '8' '1' '8')
-c=('1' '1' '1' '8' '4')
-height=1280
-width=720
+N=('1' '2' '2' '1' '1')
+n=('1' '8' '8' '1' '4')
+c=('1' '1' '1' '8' '2')
+height=720
+width=1280
 program_num=${#program[@]}
 pass=0
 all_pass=1
-lower=-2
-upper=2
+lower=-10
+upper=10
 
 
 
@@ -25,7 +25,7 @@ for ((i=0;i<$total_case_gen;++i)); do
     left=$(python gen_rand.py $lower $upper)
     right=$(python gen_rand.py $left $upper)
 
-    echo "for case$i: left=$left right=$right low=$low up=$up"
+    echo "[ for case $i] : left=$left right=$right low=$low up=$up"
 
     for ((j=0;j<$program_num;++j)); do
         echo "srun $p -N ${N[$j]} -n ${n[$j]} -c ${c[$j]} ./${program[$j]} ${c[$j]} $left $right $low $up $width $height ${pic_name[$j]}"
@@ -37,7 +37,7 @@ for ((i=0;i<$total_case_gen;++i)); do
     case_pass=1
     for ((j=1;j<$program_num;++j)); do
         ans=${pic_name[0]}
-        hw2-diff $ans ${pic_name[$j]} >$(tty)
+        hw2-diff $ans ${pic_name[$j]}
         if hw2-diff $ans ${pic_name[$j]} | grep "100.00%" ; then
             echo -e "program ${program[$j]}: [ pass ]"
         else
@@ -56,5 +56,5 @@ done
 
 echo "pass $pass/$total_case_gen"
 if [ "${all_pass}" == "1" ] ; then
-    echo -e "[ ALL PASS] "
+    echo -e "[ ALL PASS ] "
 fi

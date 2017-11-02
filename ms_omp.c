@@ -167,7 +167,7 @@ int main(int argc, char** argv) {
     for (int y = 0; y < height; ++y) {
         memset(png_row, 0, row_size);
 
-#pragma omp parallel for num_threads(num_threads) schedule(dynamic)
+//#pragma omp parallel for num_threads(num_threads) schedule(dynamic)
         for (int x = 0; x < width; ++x) {
             int p = image[(height - 1 - y) * width + x];
             png_row[x * 3] = ((p & 0xf) << 4);

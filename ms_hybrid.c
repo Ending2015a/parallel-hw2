@@ -53,7 +53,7 @@ double total_runtime=0;
 
 
 void write_png(const char* filename, const int width, const int height, const int* buffer) {
-
+/*
     png_bytep line_png = (png_bytep)malloc(total_pixel * 3 * sizeof(png_byte));
     memset(line_png, 0, total_pixel * 3 * sizeof(png_byte));
     assert(line_png);
@@ -74,7 +74,7 @@ void write_png(const char* filename, const int width, const int height, const in
 
     png_bytepp image = (png_bytepp)malloc(height * sizeof(png_bytep));
 
-#pragma omp parallel for num_threads(num_threads) schedule(dynamic)
+//#pragma omp parallel for num_threads(num_threads) schedule(dynamic)
     for(int i=0;i<total_pixel;++i){
         line_png[i*3] = ((buffer[i] & 0xf) << 4);
     }
@@ -88,7 +88,33 @@ void write_png(const char* filename, const int width, const int height, const in
     png_destroy_write_struct(&png_ptr, &info_ptr);
     fclose(fp);
     free(line_png);
-    free(image);
+    free(image);*/
+
+    FILE* fp = fopen(filename, "wb");
+    assert(fp);
+    png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+    assert(png_ptr);
+    png_infop info_ptr = png_create_info_struct(png_ptr);
+    assert(info_ptr);
+    png_init_io(png_ptr, fp);
+    png_set_IHDR(png_ptr, info_ptr, width, height, 8, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
+                 PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+    png_write_info(png_ptr, info_ptr);
+    size_t row_size = 3 * width * sizeof(png_byte);
+    png_bytep row = (png_bytep)malloc(row_size);
+    for (int y = 0; y < height; ++y) {
+        memset(row, 0, row_size);
+        for (int x = 0; x < width; ++x) {
+            int p = buffer[(height - 1 - y) * width + x];
+            row[x * 3] = ((p & 0xf) << 4);
+        }
+        png_write_row(png_ptr, row);
+    }
+    free(row);
+    png_write_end(png_ptr, NULL);
+    png_destroy_write_struct(&png_ptr, &info_ptr);
+    fclose(fp);
+
 }
 
 

@@ -2,12 +2,12 @@
 
 
 program=('ms_seq' 'ms_mpi_static' 'ms_mpi_dynamic' 'ms_omp' 'ms_hybrid')
-pic_name=('seq.png' 'stc.png' 'dyn.png' 'omp.png' 'hyb.png')
-total_case_gen=100
+pic_name=('seq2.png' 'stc2.png' 'dyn2.png' 'omp2.png' 'hyb2.png')
+total_case_gen=300
 p='-p batch'
-N=('1' '2' '2' '1' '1')
-n=('1' '8' '8' '1' '4')
-c=('1' '1' '1' '8' '2')
+N=('1' '2' '2' '1'  '2')
+n=('1' '8' '8' '1'  '4')
+c=('1' '1' '1' '12' '4')
 height=720
 width=1280
 program_num=${#program[@]}
@@ -37,8 +37,8 @@ for ((i=0;i<$total_case_gen;++i)); do
     case_pass=1
     for ((j=1;j<$program_num;++j)); do
         ans=${pic_name[0]}
-        hw2-diff $ans ${pic_name[$j]}
-        if hw2-diff $ans ${pic_name[$j]} | grep "100.00%" ; then
+        result=$(hw2-diff $ans ${pic_name[$j]})
+        if echo "$result" | grep "100.00%" ; then
             echo -e "program ${program[$j]}: [ pass ]"
         else
             echo -e "program ${program[$j]}: [failed]"

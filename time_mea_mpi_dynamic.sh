@@ -45,9 +45,13 @@ for ((i=0;i<${#N_arr[@]};++i)); do
     echo "N=$N n=$n c=$c left=$left right=$right low=$low up=$up width=$width height=$height" &>> $outfile
     echo "[ for case $i ] : -N=$N -n=$n -c=$c"
     
+    if [ -f "$pic_name" ] ; then
+        rm $pic_name
+    fi
+
 
     echo "srun $p -N $N -n $n -c $c ./${program[$j]} ${c} $left $right $low $up $width $height $pic_name"
-    { time srun $p -N $N -n $n -c $c ./${program[$j]} ${c} $left $right $low $up $width $height $pic_name &>> $outfile ; } &>> $ourfile
+    { time srun $p -N $N -n $n -c $c ./${program[$j]} ${c} $left $right $low $up $width $height $pic_name &>> $outfile ; } &>> $outfile
 
     echo "case done -> verifying..."
 

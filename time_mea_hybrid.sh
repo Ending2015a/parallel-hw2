@@ -7,9 +7,9 @@ output_dir='./measure_time/'
 outfile="${output_dir}${program}_time.txt"
 pic_name='dyn.png'
 p='-p batch'
-N_arr=('1' '1' '2' '4'  '4'  '4'  '4'  '4')
-n_arr=('2' '4' '8' '16' '24' '32' '40' '48')
-c_arr=('2' '2' '2' '2'  '2'  '2'  '2'  '2')
+N_arr=('1' '1' '2' '4'  '4'  '1' '2' '4' '4'  '1' '2' '4' '2' '4' '4' '2'  '4')
+n_arr=('2' '4' '8' '16' '24' '2' '4' '8' '12' '2' '4' '8' '2' '4' '6' '2'  '4')
+c_arr=('2' '2' '2' '2'  '2'  '4' '4' '4' '4'  '6' '6' '6' '8' '8' '8' '12' '12')
 height=720
 width=1280
 low=-1
@@ -46,6 +46,11 @@ for ((i=0;i<${#N_arr[@]};++i)); do
     echo "N=$N n=$n c=$c left=$left right=$right low=$low up=$up width=$width height=$height" &>> $outfile
     echo "[ for case $i ] : -N=$N -n=$n -c=$c"
     
+
+    if [ -f "$pic_name" ] ; then
+        rm $pic_name
+    fi
+
 
     echo "srun $p -N $N -n $n -c $c ./${program[$j]} ${c} $left $right $low $up $width $height $pic_name"
     { time srun $p -N $N -n $n -c $c ./${program[$j]} ${c} $left $right $low $up $width $height $pic_name &>> $outfile ; } &>> $outfile

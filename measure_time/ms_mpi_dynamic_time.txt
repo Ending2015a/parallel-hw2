@@ -1,0 +1,8 @@
+N=1 n=2 c=1 left=-1 right=1 low=-1 up=1 width=1280 height=720
+N=1 n=4 c=1 left=-1 right=1 low=-1 up=1 width=1280 height=720
+N=2 n=8 c=1 left=-1 right=1 low=-1 up=1 width=1280 height=720
+N=4 n=16 c=1 left=-1 right=1 low=-1 up=1 width=1280 height=720
+N=4 n=24 c=1 left=-1 right=1 low=-1 up=1 width=1280 height=720
+N=4 n=32 c=1 left=-1 right=1 low=-1 up=1 width=1280 height=720
+N=4 n=40 c=1 left=-1 right=1 low=-1 up=1 width=1280 height=720
+N=4 n=48 c=1 left=-1 right=1 low=-1 up=1 width=1280 height=720

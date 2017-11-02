@@ -4,6 +4,7 @@ ans_program='ms_seq'
 ans_file='seq.png'
 program='ms_hybrid'
 output_dir='./measure_time/'
+outfile="${output_dir}${program}_time.txt"
 pic_name='dyn.png'
 p='-p batch'
 N_arr=('1' '1' '2' '4'  '4'  '4'  '4'  '4')
@@ -21,6 +22,8 @@ pass=0
 all_pass=1
 
 
+echo "starting program $program"
+
 if [ ! -f "$ans_file" ] ; then
     echo "generating ans file..."
     ./${ans_program} 1 $left $right $low $up $width $height $ans_file
@@ -28,7 +31,6 @@ if [ ! -f "$ans_file" ] ; then
 fi
 
 
-outfile="${output_dir}${program}_time.txt"
 if [ -f "$outfile" ] ; then
     echo "removing old $outfile..."
     rm $outfile
@@ -41,12 +43,12 @@ for ((i=0;i<${#N_arr[@]};++i)); do
     n=${n_arr[i]}
     c=${c_arr[i]}
 
-    echo "N=$N n=$n c=$c left=$left right=$right low=$low up=$up width=$width height=$height" >> $outfile 2>&1
+    echo "N=$N n=$n c=$c left=$left right=$right low=$low up=$up width=$width height=$height" &>> $outfile
     echo "[ for case $i ] : -N=$N -n=$n -c=$c"
     
 
     echo "srun $p -N $N -n $n -c $c ./${program[$j]} ${c} $left $right $low $up $width $height $pic_name"
-    time srun $p -N $N -n $n -c $c ./${program[$j]} ${c} $left $right $low $up $width $height $pic_name >> $outfile 2>&1
+    { time srun $p -N $N -n $n -c $c ./${program[$j]} ${c} $left $right $low $up $width $height $pic_name &>> $outfile ; } &>> $outfile
 
     echo "case done -> verifying..."
 

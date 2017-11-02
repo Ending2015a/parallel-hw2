@@ -25,13 +25,23 @@
 #ifdef __MEASURE_TIME__
     double __temp_time=0;
     #define TIC     __temp_time = MPI_Wtime()
-    #define TOC(X)  X += (MPI_Wtime() - __temp_time)
+    #define TOC(X)  X = (MPI_Wtime() - __temp_time)
+    #define TOC_P(X) X += (MPI_Wtime() - __temp_time)
     #define TIME(X) X = MPI_Wtime()
 #else
     #define TIC
     #define TOC(X)
+    #define TOC_P(X)
     #define TIME(X)
 #endif
+
+double init_time=0;
+double final_time=0;
+double total_exetime=0;
+double total_runtime=0;
+double total_iotime=0;
+double total_commtime=0;
+
 
 // MPI argument
 int world_size, world_rank;
@@ -144,9 +154,9 @@ inline void worker(){
             xy = x*y;
             len = x2 + y2;
 
-            if(test(&x, &y, &y2)){
-                repeat = 100000;
-            }else{
+//            if(test(&x, &y, &y2)){
+//                repeat = 100000;
+//            }else{
 
                 while(repeat < 100000 && len < 4){
                     x = x2 - y2 + cr;
@@ -158,7 +168,7 @@ inline void worker(){
 
                     ++repeat;
                 }
-            }
+//            }
 
             array[idx] = repeat;
         }
@@ -190,7 +200,8 @@ inline void manager(){
     int current_pixel=0;
     int remain_pixel = total_pixel;
     int done_pixel = 0;
-
+    
+    TIC;
     int i;
     //First Task
 #pragma omp parallel num_threads(num_threads) shared(world_size, current_pixel, remain_pixel, done_pixel, worker_list) private(i)
@@ -210,7 +221,11 @@ inline void manager(){
 #ifdef __DEBUG__
             printf("Rank %d-%d: send task(%d +%d) to rank %d\n", world_rank, omp_get_thread_num(), worker_list[off], worker_list[size], i);
 #endif
+            TOC_P(total_runtime);
+            TIC;
             MPI_Send(&worker_list[off], 2, MPI_INT, i, 1, MPI_COMM_WORLD);
+            TOC_P(total_runtime);
+            TIC;
 
         }else{
             worker_list[off] = 0;
@@ -218,8 +233,11 @@ inline void manager(){
 #ifdef __DEBUG__
             printf("Rank %d-%d: send end signal to rank %d\n", world_rank, omp_get_thread_num(), i);
 #endif
-
+            TOC_P(total_runtime);
+            TIC;
             MPI_Send(&worker_list[off], 2, MPI_INT, i, 0, MPI_COMM_WORLD);
+            TOC_P(total_runtime);
+            TIC;
 
         }
     }
@@ -347,6 +365,9 @@ int main(int argc, char **argv){
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
+    TIME(init_time);
+
+
 #ifdef __DEBUG__
     if (provided < MPI_THREAD_MULTIPLE){
         printf("ERROR: The MPI library does not have full thread support\n");
@@ -387,7 +408,8 @@ int main(int argc, char **argv){
 
         //write_png(filename, width, height, image);
         //free(image);
-        
+        TIC;   
+     
         FILE* fp = fopen(filename, "wb");
         assert(fp);
         png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
@@ -412,7 +434,16 @@ int main(int argc, char **argv){
         free(line_png);
         free(image);
 
+        TOC_P(total_iotime);
     }
+
+    TIME(final_time);
+
+#ifdef __MEASURE_TIME__
+    total_exetime = final_time - init_time;
+    //rank, total_exetime, total_runtime, total_iotime, total_commtime;
+    printf("%d, %.16lf, %.16lf, %.16lf, %.16lf\n", world_rank, total_exetime, total_runtime, total_iotime, total_commtime);
+#endif
 
     //Final
     MPI_Finalize();

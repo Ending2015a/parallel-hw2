@@ -13,9 +13,8 @@
 
 //#define __DEBUG__
 
-#define MINIMUM_NUMBER 4
 #define MAX(x, y) ((x)>(y)?(x):(y))
-
+#define MIN(x, y) ((x)<(y)?(x):(y))
 
 #ifdef __MEASURE_TIME__
     double __temp_time=0;
@@ -41,6 +40,15 @@ double left, right;
 double lower, upper;
 int width, height;
 char* filename;
+
+int task_size;
+
+double init_time=0;
+double final_time=0;
+double total_exetime=0;
+double total_commtime=0;
+double total_iotime=0;
+double total_runtime=0;
 
 
 void write_png(const char* filename, const int width, const int height, const int* buffer) {
@@ -94,6 +102,9 @@ int main(int argc, char **argv){
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
+
+    TIME(init_time);
+
     // Argument parsing
     num_thread = strtol(argv[1], 0, 10);
     left = strtod(argv[2], 0);
@@ -114,6 +125,9 @@ int main(int argc, char **argv){
         valid_size = MAX(1, valid_size);
     }
 
+    task_size = (total_pixel / world_size) >> MAXIMUM_TASKS_PER_WORKER_POW_2;
+    task_size = MAX(task_size, MINIMUM_NUMBER);
+
 
 #ifdef __DEBUG__
     printf("Rank %d: valid_size %d\n", world_rank, valid_size);
@@ -131,11 +145,12 @@ int main(int argc, char **argv){
     printf("Rank %d: start_pixel %d, pixel_range %d\n", world_rank, start_pixel, pixel_range);
 #endif
 
+    size_t total_pixel_byte = total_pixel * sizeof(int);
     // create image
-    int *array = (int*)malloc(pixel_range * sizeof(int));
-    int *array_end = array + pixel_range;
-    int *iter = array;
+    int *array = (int*)malloc(total_pixel_byte);
     assert(array);
+
+    memset(array, 0, total_pixel_byte);
 
     // mandelbrot set
     int col = start_pixel / width;  
@@ -156,6 +171,8 @@ int main(int argc, char **argv){
     double x2, y2, xy;
     double len;
 
+    TIC;
+
     while(iter<array_end){
         
         repeat=1;
@@ -168,9 +185,9 @@ int main(int argc, char **argv){
         xy = x*y;
         len = x2 + y2;
 
-        if(test(&x, &y, &y2)){
-            repeat = 100000;
-        }else{
+      //  if(test(&x, &y, &y2)){
+    //        repeat = 100000;
+  //      }else{
 
             while(repeat < 100000 && len < 4){
                 x = x2 - y2 + cr;
@@ -182,7 +199,7 @@ int main(int argc, char **argv){
             
                 ++repeat;
             }
-        }
+//        }
 
         *iter = repeat;
         ++iter;
@@ -194,6 +211,7 @@ int main(int argc, char **argv){
 
     }
 
+    TOC(total_runtime);
 
     int *recvcount = (int*)malloc(world_size * sizeof(int));
     assert(recvcount);
@@ -219,7 +237,13 @@ int main(int argc, char **argv){
 
     }
 
+    TIC;
+
     MPI_Gatherv(array, pixel_range, MPI_INT, image, recvcount, displs, MPI_INT, 0, MPI_COMM_WORLD);
+
+    TOC(total_commtime);
+
+    TIC;
 
 
     if(world_rank == 0){
@@ -229,10 +253,22 @@ int main(int argc, char **argv){
         write_png(filename, width, height, image);
     }
 
+    TOC(total_iotime);
+
     free(image);
     free(recvcount);
     free(displs);
     free(array);
+
+
+    TIME(final_time);
+
+#ifdef __MEASURE_TIME__
+    total_exetime = final_time - init_time;
+    //rank, total_exetime, total_runtime, total_iotime, total_commtime;
+    printf("%d, %.16lf, %.16lf, %.16lf, %.16lf\n", world_rank, total_exetime, total_runtime, total_iotime, total_commtime);
+#endif
+
 
     //Final
     MPI_Finalize();

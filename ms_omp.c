@@ -6,6 +6,33 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
+#include <omp.h>
+
+#define __MEASURE_TIME__
+
+#ifdef __MEASURE_TIME__
+    double __temp_time=0;
+    #define TIC     __temp_time = omp_get_wtime()
+    #define TOC(X)  X += (omp_get_wtime() - __temp_time)
+    #define TOC_P(X) X += (omp_get_wtime() - __temp_time)
+    #define TIME(X) X = omp_get_wtime()
+#else
+    #define TIC
+    #define TOC(X)
+    #define TOC_P(X)
+    #define TIME(X)
+#endif
+
+
+double init_time=0;
+double final_time=0;
+double total_exetime=0;
+double total_runtime=0;
+double total_iotime=0;
+double total_commtime=0;
+
+
 
 
 void write_png(const char* filename, const int width, const int height, const int* buffer) {
@@ -48,6 +75,9 @@ inline int test(double x, double y, double y2){
 int main(int argc, char** argv) {
     /* argument parsing */
     assert(argc == 9);
+
+    TIME(init_time);
+
     int num_threads = strtol(argv[1], 0, 10);
     double left = strtod(argv[2], 0);
     double right = strtod(argv[3], 0);
@@ -82,6 +112,7 @@ int main(int argc, char** argv) {
     int* image = (int*)malloc(width * height * sizeof(int));
     assert(image);
 
+    TIC;
 
     double y0, x0;
     int repeats;
@@ -103,9 +134,9 @@ int main(int argc, char** argv) {
             xy = x*y;
             len = x2 + y2;
 
-            if(test(x, y, y2)){
-                repeats = 100000;
-            }else{
+//            if(test(x, y, y2)){
+//                repeats = 100000;
+//            }else{
                 while (repeats < 100000 && len < 4) {
                     x = x2 - y2 + x0;
                     y = xy + xy + y0;
@@ -115,11 +146,14 @@ int main(int argc, char** argv) {
                     len = x2+y2;
                     ++repeats;
                 }
-            }
+//            }
             image[j * width + i] = repeats;
         }
     }
 
+
+    TOC_P(total_runtime);
+    TIC;
 
     for (int y = 0; y < height; ++y) {
         memset(png_row, 0, row_size);
@@ -136,6 +170,17 @@ int main(int argc, char** argv) {
     png_write_end(png_ptr, NULL);
     png_destroy_write_struct(&png_ptr, &info_ptr);
     fclose(fp);
+
+    TOC_P(total_iotime);
+    TIME(final_time);
+
+    #ifdef __MEASURE_TIME__
+    total_exetime = final_time - init_time;
+
+    //rank, total_exetime, total_runtime, total_iotime, total_commtime;
+    printf("%d, %.16lf, %.16lf, %.16lf, %.16f\n", 0, total_exetime, total_runtime, total_iotime, total_commtime);
+    #endif
+
 
     /* draw and cleanup */
     //write_png(filename, width, height, image);

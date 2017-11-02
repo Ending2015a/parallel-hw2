@@ -9,7 +9,7 @@
 #include <string.h>
 
 
-//#define __MEASURE_TIME__
+#define __MEASURE_TIME__
 
 //#define __DEBUG__
 
@@ -26,12 +26,22 @@
     double __temp_time=0;
     #define TIC     __temp_time = MPI_Wtime()
     #define TOC(X)  X += (MPI_Wtime() - __temp_time)
+    #define TOC_P(X) X += (MPI_Wtime() - __temp_time)
     #define TIME(X) X = MPI_Wtime()
 #else
     #define TIC
     #define TOC(X)
+    #define TOC_P(X)
     #define TIME(X)
 #endif
+
+double total_exetime=0;
+double total_runtime=0;
+double total_iotime=0;
+double total_commtime=0;
+
+double init_time=0;
+double final_time=0;
 
 // MPI argument
 int world_size, world_rank;
@@ -108,7 +118,11 @@ inline void worker(){
     double y_step = ((upper - lower) / height);
 
     MPI_Status status;
+    TIC;
     MPI_Recv(task, 2, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+    TOC_P(total_commtime);
+
+    TIC;
     while(status.MPI_TAG != 0){
 
         off = task[0];
@@ -147,9 +161,9 @@ inline void worker(){
             xy = x*y;
             len = x2 + y2;
 
-            if(test(&x, &y, &y2)){
-                repeat = 100000;
-            }else{
+      //      if(test(&x, &y, &y2)){
+    //            repeat = 100000;
+  //          }else{
 
                 while(repeat < 100000 && len < 4){
                     x = x2 - y2 + cr;
@@ -161,7 +175,7 @@ inline void worker(){
 
                     ++repeat;
                 }
-            }
+//            }
 
             *iter = repeat;
             ++iter;
@@ -173,15 +187,18 @@ inline void worker(){
 
         }
 
-
+        TOC_P(total_runtime);
+        TIC;
         MPI_Send(array, size, MPI_INT, 0, 1, MPI_COMM_WORLD);
-
+        
 #ifdef __DEBUG__
         printf("Rank %d: task(%d +%d) done, send back to root\n", world_rank, off, size);
 #endif
 
 
         MPI_Recv(task, 2, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+        TOC_P(total_commtime);
+        TIC;
     }
 
 
@@ -199,6 +216,8 @@ inline void manager(int *image){
     int remain_pixel = total_pixel;
     int done_pixel = 0;
 
+    TIC;
+
     //First Task
     for(int i=1;i<world_size;++i){
         int off=i*2;
@@ -209,9 +228,16 @@ inline void manager(int *image){
             worker_list[size] = MIN(remain_pixel, task_size);
 #ifdef __DEBUG__
             printf("Rank %d: send task(%d +%d) to rank %d\n", world_rank, worker_list[off], worker_list[size], i);
-#endif
+#endif      
+
+            TOC_P(total_runtime);
+            TIC;
+
             MPI_Send(&worker_list[off], 2, MPI_INT, i, 1, MPI_COMM_WORLD);
 
+
+            TOC_P(total_commtime);
+            TIC;
 
             current_pixel += worker_list[size];
             remain_pixel -= worker_list[size];
@@ -222,30 +248,54 @@ inline void manager(int *image){
             printf("Rank %d: send end signal to rank %d\n", world_rank, i);
 #endif
 
+
+            TOC_P(total_runtime);
+            TIC;
+
             MPI_Send(&worker_list[off], 2, MPI_INT, i, 0, MPI_COMM_WORLD);   //TODO
+
+            TOC_P(total_commtime);
+            TIC;
 
         }
     }
+    
 
     int tag;
     MPI_Status status;
     int wrank;
 
+    
     //divide remain task
     do{
+        
         MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &tag, &status);
         if (tag){
             wrank = status.MPI_SOURCE;
             int off = wrank*2;
             int size = wrank*2+1;
+        
+
+            TOC_P(total_runtime);
+            TIC;
             
             MPI_Recv(image+worker_list[off], worker_list[size], MPI_INT, wrank, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+
+            TOC_P(total_commtime);    
+            TIC;
+
             done_pixel += worker_list[size];
 
             if (remain_pixel > 0){
                 worker_list[off] = current_pixel;
                 worker_list[size] = MIN(remain_pixel, task_size);
+
+                TOC_P(total_runtime);
+                TIC;
                 MPI_Send(&worker_list[off], 2, MPI_INT, wrank, 1, MPI_COMM_WORLD);
+                TOC_P(total_commtime);
+                TIC;
+
 #ifdef __DEBUG__
                 printf("Rank %d: send task(%d +%d) to rank %d\n", world_rank, worker_list[off], worker_list[size], wrank);
 #endif
@@ -255,7 +305,12 @@ inline void manager(int *image){
             }else{
                 worker_list[off] = 0;
                 worker_list[size] = 0;
+
+                TOC_P(total_runtime);
+                TIC;
                 MPI_Send(&worker_list[off], 2, MPI_INT, wrank, 0, MPI_COMM_WORLD);
+                TOC_P(total_commtime);
+                TIC;
 #ifdef __DEBUG__
                 printf("Rank %d: send end signal to rank %d\n", world_rank, wrank);
 #endif
@@ -295,6 +350,8 @@ int main(int argc, char **argv){
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
+    TIME(init_time);
+
     // Argument parsing
     set_param(argc, argv);
 
@@ -319,9 +376,21 @@ int main(int argc, char **argv){
 #ifdef __DEBUG__
         printf("Rank %d: write to image %s\n", world_rank, filename);
 #endif
+        TIC;
         write_png(filename, width, height, image);
+        TOC_P(total_iotime);
         free(image);
     }
+
+    TIME(final_time);
+
+#ifdef __MEASURE_TIME__
+    total_exetime = final_time - init_time;
+
+    //rank, total_exetime, total_runtime, total_iotime, total_commtime;
+    printf("%d, %.16lf, %.16lf, %.16lf, %.16f\n", world_rank, total_exetime, total_runtime, total_iotime, total_commtime);
+
+#endif
 
     //Final
     MPI_Finalize();

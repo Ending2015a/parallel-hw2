@@ -118,53 +118,30 @@ int main(int argc, char **argv){
 
     // counting task range
     int total_pixel = height * width;
-    int valid_size = world_size;
-
-    if (total_pixel < MINIMUM_NUMBER * world_size){
-        valid_size = total_pixel/MINIMUM_NUMBER;
-        valid_size = MAX(1, valid_size);
-    }
-
-    task_size = (total_pixel / world_size) >> MAXIMUM_TASKS_PER_WORKER_POW_2;
-    task_size = MAX(task_size, MINIMUM_NUMBER);
-
+    int start_pixel = world_rank;
 
 #ifdef __DEBUG__
-    printf("Rank %d: valid_size %d\n", world_rank, valid_size);
+    printf("Rank %d: total_pixel %d, start_pixel %d\n", world_rank, total_pixel, start_pixel);
 #endif
 
-    int remain = total_pixel % valid_size;
-    int divide = total_pixel / valid_size;
-    int bonus = (world_rank < remain) ? 1:0;
-    
-    start_pixel = divide * world_rank + (bonus?world_rank:remain);
-    pixel_range = bonus + divide;
-
-    
-#ifdef __DEBUG__
-    printf("Rank %d: start_pixel %d, pixel_range %d\n", world_rank, start_pixel, pixel_range);
-#endif
-
-    size_t total_pixel_byte = total_pixel * sizeof(int);
+    int total_pixel_byte = total_pixel * sizeof(int);
     // create image
     int *array = (int*)malloc(total_pixel_byte);
+    int *array_end = array + total_pixel;
+    int *iter = array + start_pixel;
     assert(array);
 
     memset(array, 0, total_pixel_byte);
 
     // mandelbrot set
-    int col = start_pixel / width;  
-    int row = start_pixel % width;
+    int col;  
+    int row;
 
 
     double x_step = ((right - left) / width);
     double y_step = ((upper - lower) / height);
     double cr;  //real part
     double ci;  //imag part
-
-#ifdef __DEBUG__
-    printf("Rank %d: col %d, row %d\n", world_rank, col, row);
-#endif
 
     int repeat;
     double x, y;
@@ -175,6 +152,9 @@ int main(int argc, char **argv){
 
     while(iter<array_end){
         
+        col = (iter-array) / width;
+        row = (iter-array) % width;
+
         repeat=1;
         cr = row * x_step + left;
         ci = col * y_step + lower;
@@ -185,61 +165,30 @@ int main(int argc, char **argv){
         xy = x*y;
         len = x2 + y2;
 
-      //  if(test(&x, &y, &y2)){
-    //        repeat = 100000;
-  //      }else{
-
-            while(repeat < 100000 && len < 4){
-                x = x2 - y2 + cr;
-                y = xy + xy + ci;
-                x2 = x*x;
-                y2 = y*y;
-                xy = x*y;
-                len = x2+y2;
+        while(repeat < 100000 && len < 4){
+            x = x2 - y2 + cr;
+            y = xy + xy + ci;
+            x2 = x*x;
+            y2 = y*y;
+            xy = x*y;
+            len = x2+y2;
             
-                ++repeat;
-            }
-//        }
-
-        *iter = repeat;
-        ++iter;
-        ++row;
-        if(row >= width){
-            row = 0;
-            ++col;
+            ++repeat;
         }
 
+        *iter = repeat;
+        iter += world_size;
     }
 
     TOC(total_runtime);
 
-    int *recvcount = (int*)malloc(world_size * sizeof(int));
-    assert(recvcount);
-
-    int *displs = (int*)malloc(world_size * sizeof(int));
-    assert(displs);
-
-    int *image = (int*)malloc(total_pixel * sizeof(int));
-    assert(image);
-
-    for(int i=0;i<world_size;++i){
-        if (i < valid_size){
-            displs[i] = divide * i + ((i<remain)?i:remain);
-            recvcount[i] = ((i < remain) ? 1:0) + divide;
-        }else{
-            displs[i] = 0;
-            recvcount[i] = 0;
-        }
-
-#ifdef __DEBUG__
-            printf("Rank %d: [%d] displs %d, recvcount %d\n", world_rank, i, displs[i], recvcount[i]);
-#endif
-
-    }
-
     TIC;
 
-    MPI_Gatherv(array, pixel_range, MPI_INT, image, recvcount, displs, MPI_INT, 0, MPI_COMM_WORLD);
+    int* image = (int*)malloc(total_pixel_byte);
+
+    //MPI_Gatherv(array, pixel_range, MPI_INT, image, recvcount, displs, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Reduce(array, image, total_pixel, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+
 
     TOC(total_commtime);
 
@@ -256,8 +205,6 @@ int main(int argc, char **argv){
     TOC(total_iotime);
 
     free(image);
-    free(recvcount);
-    free(displs);
     free(array);
 
 

@@ -11,6 +11,8 @@
 
 #define __MEASURE_TIME__
 
+//#define __DEBUG__
+
 #ifdef __MEASURE_TIME__
     double __temp_time=0;
     #define TIC     __temp_time = omp_get_wtime()
@@ -31,45 +33,6 @@ double total_exetime=0;
 double total_runtime=0;
 double total_iotime=0;
 double total_commtime=0;
-
-
-
-
-void write_png(const char* filename, const int width, const int height, const int* buffer) {
-    FILE* fp = fopen(filename, "wb");
-    assert(fp);
-    png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-    assert(png_ptr);
-    png_infop info_ptr = png_create_info_struct(png_ptr);
-    assert(info_ptr);
-    png_init_io(png_ptr, fp);
-    png_set_IHDR(png_ptr, info_ptr, width, height, 8, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
-                 PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
-    png_write_info(png_ptr, info_ptr);
-    size_t row_size = 3 * width * sizeof(png_byte);
-    png_bytep row = (png_bytep)malloc(row_size);
-    for (int y = 0; y < height; ++y) {
-        memset(row, 0, row_size);
-        for (int x = 0; x < width; ++x) {
-            int p = buffer[(height - 1 - y) * width + x];
-            row[x * 3] = ((p & 0xf) << 4);
-        }
-        png_write_row(png_ptr, row);
-    }
-    free(row);
-    png_write_end(png_ptr, NULL);
-    png_destroy_write_struct(&png_ptr, &info_ptr);
-    fclose(fp);
-}
-
-
-inline int test(double x, double y, double y2){
-    double xp = x-0.25;
-    double cp = x+1;
-    double theta = atan2(y, xp);
-    double r = 0.5*(1-cos(theta));
-    return (r*r >= xp*xp + y2) || (0.0625 >= cp*cp + y2);
-}
 
 
 int main(int argc, char** argv) {
@@ -108,17 +71,57 @@ int main(int argc, char** argv) {
     size_t row_size = 3 * width * sizeof(png_byte);
     png_bytep png_row = (png_bytep)malloc(row_size);
 
+    int world_size = num_threads;
+
+    int total_pixel = width * height;
     /* allocate memory for image */
-    int* image = (int*)malloc(width * height * sizeof(int));
+    int* image = (int*)malloc(total_pixel * sizeof(int));
+    int* image_end = image + total_pixel;
     assert(image);
 
     TIC;
 
+    double col, row;
+    double cr, ci;
+    double x_step = ((right-left)/width);
+    double y_step = ((upper-lower)/height);
     double y0, x0;
-    int repeats;
+    int repeat;
     double x, y, x2, y2, xy, len;
-    int i, j;
     /* mandelbrot set */
+
+    
+
+#pragma omp parallel for num_threads(num_threads) private(x0, y0, repeat, x, y, x2, y2, xy, len, cr, ci, col, row) shared(image, world_size, image_end, x_step, y_step) schedule(dynamic)
+    for(int *iter=image; iter<image_end; ++iter){
+        col = (iter-image) / width;
+        row = (iter-image) % width;
+
+        repeat=1;
+        cr = row * x_step + left;
+        ci = col * y_step + lower;
+        x = cr;
+        y = ci;
+        x2 = x*x;
+        y2 = y*y;
+        xy = x*y;
+        len = x2 + y2;
+ 
+        while(repeat < 100000 && len < 4){
+            x = x2 - y2 + cr;
+            y = xy + xy + ci;
+            x2 = x*x;
+            y2 = y*y;
+            xy = x*y;
+            len = x2+y2;
+
+            ++repeat;
+        }
+
+        *iter = repeat;
+    }
+
+/*    
 #pragma omp parallel num_threads(num_threads) private(x0, y0, repeats, x, y, x2, y2, xy, len, i, j) shared(image)
 #pragma omp for schedule(dynamic) collapse(2)
     for (j = 0; j < height; ++j) {
@@ -149,10 +152,16 @@ int main(int argc, char** argv) {
 //            }
             image[j * width + i] = repeats;
         }
-    }
-
+    }*/
 
     TOC_P(total_runtime);
+
+
+#ifdef __DEBUG__
+    printf("task done\n");
+#endif
+
+
     TIC;
 
     for (int y = 0; y < height; ++y) {

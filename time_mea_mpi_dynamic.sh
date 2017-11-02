@@ -4,6 +4,7 @@ ans_program='ms_seq'
 ans_file='seq.png'
 program='ms_mpi_dynamic'
 output_dir='./measure_time/'
+outfile="${output_dir}${program}_time.txt"
 pic_name='dyn.png'
 p='-p batch'
 N_arr=('1' '1' '2' '4' '4' '4' '4' '4')
@@ -28,7 +29,6 @@ if [ ! -f "$ans_file" ] ; then
 fi
 
 
-outfile="${output_dir}${program}_time.txt"
 if [ -f "$outfile" ] ; then
     echo "removing old $outfile..."
     rm $outfile

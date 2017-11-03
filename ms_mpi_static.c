@@ -9,7 +9,7 @@
 #include <string.h>
 
 
-#define __MEASURE_TIME__
+//#define __MEASURE_TIME__
 
 //#define __DEBUG__
 

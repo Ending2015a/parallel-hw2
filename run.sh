@@ -2,14 +2,14 @@
 
 
 program=('ms_seq' 'ms_mpi_static' 'ms_mpi_dynamic' 'ms_omp' 'ms_hybrid')
-pic_name=('seq2.png' 'stc2.png' 'dyn2.png' 'omp2.png' 'hyb2.png')
-total_case_gen=200
+pic_name=('seq.png' 'stc.png' 'dyn.png' 'omp.png' 'hyb.png')
+total_case_gen=10
 p='-p batch'
 N=('1' '2' '2' '1'  '2')
 n=('1' '8' '8' '1'  '4')
 c=('1' '1' '1' '12' '4')
-height=720
-width=1280
+height=1
+width=1
 program_num=${#program[@]}
 pass=0
 all_pass=1
@@ -28,6 +28,9 @@ for ((i=0;i<$total_case_gen;++i)); do
     echo "[ for case $i] : left=$left right=$right low=$low up=$up"
 
     for ((j=0;j<$program_num;++j)); do
+        if [ -f "${pic_name[$j]}" ] ; then
+            rm ${pic_name[$j]}
+        fi
         echo "srun $p -N ${N[$j]} -n ${n[$j]} -c ${c[$j]} ./${program[$j]} ${c[$j]} $left $right $low $up $width $height ${pic_name[$j]}"
         time srun $p -N ${N[$j]} -n ${n[$j]} -c ${c[$j]} ./${program[$j]} ${c[$j]} $left $right $low $up $width $height ${pic_name[$j]}
     done

@@ -9,7 +9,7 @@
 #include <time.h>
 #include <omp.h>
 
-//#define __MEASURE_TIME__
+#define __MEASURE_TIME__
 
 //#define __DEBUG__
 
@@ -92,7 +92,12 @@ int main(int argc, char** argv) {
 
     
 
-#pragma omp parallel for num_threads(num_threads) private(x0, y0, repeat, x, y, x2, y2, xy, len, cr, ci, col, row) shared(image, world_size, image_end, x_step, y_step) schedule(dynamic)
+#pragma omp parallel num_threads(num_threads) private(x0, y0, repeat, x, y, x2, y2, xy, len, cr, ci, col, row) shared(image, world_size, image_end, x_step, y_step)
+#ifdef __MEASURE_TIME__
+    {
+    double start = omp_get_wtime();
+#endif
+#pragma omp for  schedule(dynamic)
     for(int *iter=image; iter<image_end; ++iter){
         col = (iter-image) / width;
         row = (iter-image) % width;
@@ -120,6 +125,10 @@ int main(int argc, char** argv) {
 
         *iter = repeat;
     }
+#ifdef __MEASURE_TIME__
+    printf("%d, %lf\n", omp_get_thread_num(), omp_get_wtime()-start);
+    }
+#endif
 
 /*    
 #pragma omp parallel num_threads(num_threads) private(x0, y0, repeats, x, y, x2, y2, xy, len, i, j) shared(image)

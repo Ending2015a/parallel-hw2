@@ -59,7 +59,7 @@ for ((i=0;i<${#N_arr[@]};++i)); do
         echo "case $i: [  pass  ]"
         let pass="$pass + 1"
     else
-        echo "case $1: [ failed ]" >> outfile 2>&1
+        echo "case $1: [ failed ]" >> $outfile 2>&1
         let all_pass=0
     fi
 done

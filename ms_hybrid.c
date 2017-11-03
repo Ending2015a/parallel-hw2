@@ -9,7 +9,7 @@
 #include <string.h>
 #include <omp.h>
 
-#define __MEASURE_TIME__
+//#define __MEASURE_TIME__
 
 //#define __DEBUG__
 
@@ -187,7 +187,7 @@ int main(int argc, char **argv){
 
     TIC;
 
-#pragma omp parallel for num_threads(num_threads) private(col, row, cr, ci, repeat, x, y, x2, y2, xy, len) shared(array, start_pixel, array_end, world_size)
+#pragma omp parallel for num_threads(num_threads) private(col, row, cr, ci, repeat, x, y, x2, y2, xy, len) shared(array, start_pixel, array_end, world_size) schedule(dynamic)
     for(int *iter=array+world_rank; iter < array_end; iter += world_size){
         
         col = (iter-array) / width;

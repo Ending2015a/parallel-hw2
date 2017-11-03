@@ -9,7 +9,7 @@
 #include <time.h>
 #include <omp.h>
 
-#define __MEASURE_TIME__
+//#define __MEASURE_TIME__
 
 //#define __DEBUG__
 

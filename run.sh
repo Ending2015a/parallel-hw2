@@ -3,7 +3,7 @@
 
 program=('ms_seq' 'ms_mpi_static' 'ms_mpi_dynamic' 'ms_omp' 'ms_hybrid')
 pic_name=('seq2.png' 'stc2.png' 'dyn2.png' 'omp2.png' 'hyb2.png')
-total_case_gen=300
+total_case_gen=200
 p='-p batch'
 N=('1' '2' '2' '1'  '2')
 n=('1' '8' '8' '1'  '4')
@@ -13,8 +13,8 @@ width=1280
 program_num=${#program[@]}
 pass=0
 all_pass=1
-lower=-10
-upper=10
+lower=-3
+upper=3
 
 
 
